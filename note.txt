@@ -1,0 +1,8 @@
+I dati di Solomon riportano solo le coordinate dei clienti, perciò tempo di
+percorrenza e costo di percorrenza di un arco vengono assunti uguali dalla
+distanza tra i clienti.
+
+"We followed the common conventions used for exact methods: minimizing only
+the distance, distances and durations use Euclidian distances between pairs of
+coordinates rounded to first lower decimal". Come fare?
+-> https://stackoverflow.com/questions/1401712/how-can-the-euclidean-distance-be-calculated-with-numpy
