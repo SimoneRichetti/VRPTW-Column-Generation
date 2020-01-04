@@ -39,9 +39,9 @@ def createDistanceMatrix(data):
     return d
 
 
-def createMasterProblem(a, costs, n, numberOfPaths):
+def createMasterProblem(a, costs, n):
     model = gp.Model("Master problem")
-    vars = model.addVars(range(numberOfPaths), name="y",
+    vars = model.addVars(range(a.shape[0]), name="y",
                               vtype=gp.GRB.CONTINUOUS)
     model.setObjective(vars.prod(costs.tolist()), gp.GRB.MINIMIZE)
     # Constraints
@@ -54,10 +54,31 @@ def createMasterProblem(a, costs, n, numberOfPaths):
                             gp.GRB.EQUAL, 1))
 
     signConstraints = list()
-    for j in range(numberOfPaths):
+    for j in range(a.shape[0]):
         signConstraints.append(model.addConstr(vars[j], gp.GRB.GREATER_EQUAL, 0))
 
     return model, constraints, signConstraints
+
+"""
+Create some dummy feasible paths for initializing the master problem. For each
+customer, create a path that starts from the depot, visits the customer and
+returns to the depot. This violates the maximum number oh vehicles, but actually
+we don't have a constraint about that.
+"""
+def initializePaths(d):
+    a = np.zeros((1,n+2, n+2))          # path matrix
+    a[0,0,1] = 1
+    a[0,1,-1] = 1
+    c = np.array([d[0,1] + d[1, -1]])   # costs array
+
+    for i in range(1, n+1):
+        path = np.zeros((1,n+2,n+2))
+        path[0,0,i] = 1
+        path[0,i,-1] = 1
+        a = np.append(a, path, axis=0)
+        c = np.append(c, d[0,i] + d[i,-1])
+
+    return a, c
 
 
 if __name__ == '__main__':
@@ -72,30 +93,17 @@ if __name__ == '__main__':
     data[-1]["CUST-NO."] = "51"
 
     d = createDistanceMatrix(data)
-
-    numberOfPaths = 1
-    c = np.array([])            # costs array
     # quando dovrò aggiungere matrici, usare la funzione np.append(a, matrice, axis=0)
     # e le matrici dovranno essere 1x52x52
-    a = np.zeros((numberOfPaths,n+2, n+2))  # path matrix
-
-    # To initialize we create a path that goes trough all the customers
-    # in the order specified in the file. We can do this because the sum of all
-    # the demands is less than the capacity of one vehicle
-    cost = 0
-    for i in range(0, n+1):
-        a[0, i, i+1] = 1
-        cost += d[i,i+1]
-    c = np.append(c, cost)
+    a, c = initializePaths(d)
 
     masterModel, masterConstraints, masterSignConstraints = \
-        createMasterProblem(a, c, n, numberOfPaths)
+        createMasterProblem(a, c, n)
     masterModel.write("MasterVRPTW.lp")
     masterModel.optimize()
     #for var in masterModel.getVars():
     #    print(var.varName, var.x)
 
-    # Ricava variabili duali, crea pricing problem e passale al pricing problem
     pi_i = []
     #print("pi_i")
     for const in masterConstraints:
@@ -107,3 +115,5 @@ if __name__ == '__main__':
     for const in masterSignConstraints:
         #print(const.pi)
         pi_zero.append(const.pi)
+
+    # newPath = subProblem(data, pi_i, pi_zero)
