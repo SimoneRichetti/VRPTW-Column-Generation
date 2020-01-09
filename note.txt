@@ -6,3 +6,5 @@ distanza tra i clienti.
 the distance, distances and durations use Euclidian distances between pairs of
 coordinates rounded to first lower decimal". Come fare?
 -> https://stackoverflow.com/questions/1401712/how-can-the-euclidean-distance-be-calculated-with-numpy
+
+The value of time is equal to the value of distance.
