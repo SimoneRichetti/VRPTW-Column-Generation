@@ -15,6 +15,7 @@ def insertNode(route, node, position, s, arr, d, a):
 
 
 def routeIsFeasible(route, a, b, s, d):
+    # TODO: add capacity check for feasibility
     for i in range(len(route)):
         if not ((s[i] >= a[route[i]]) and (s[i] <= b[route[i]])):
             return False

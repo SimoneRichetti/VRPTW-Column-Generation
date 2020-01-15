@@ -45,8 +45,7 @@ if __name__ == '__main__':
         pi_zero.append(const.pi)
     """
 
-    """
-    ESPModel, x_vars = createESPModel(d, pi_i, q, Q, a, b, n)
+    ESPModel = createESPModel(d, pi_i, q, Q, a, b, n)
     ESPModel.optimize()
     for i in range(n+2):
         for j in range(n+2):
@@ -55,4 +54,3 @@ if __name__ == '__main__':
                 # selectedVars.append(var)
                 # newPath[i,j] = 1
                 print(var)
-    """
