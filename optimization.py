@@ -3,7 +3,7 @@ import gurobipy as gp
 from utilities import *
 
 
-def createMasterRelaxedProblem(A, costs, n):
+def createMasterProblem(A, costs, n, vehicleNumber):
     model = gp.Model("Master problem")
     vars = model.addVars(A.shape[0], name="y",
                               vtype=gp.GRB.CONTINUOUS)
@@ -17,6 +17,8 @@ def createMasterRelaxedProblem(A, costs, n):
             a_ip = np.append(a_ip, np.sum(A[p,i]))
         constraints.append(model.addConstr(vars.prod(a_ip.tolist()),
                             gp.GRB.EQUAL, 1))
+
+    model.addConstr(gp.quicksum(vars) <= vehicleNumber)
 
     signConstraints = list()
     for p in range(A.shape[0]):
@@ -39,42 +41,6 @@ def setESPModelFO(model, x_vars, pi, n, d):
             else:
                 rc[i,j] = d[i,j] + pi[i-1]
     model.setObjective(gp.quicksum(x_vars[i,j]*rc[i,j] for i in range(n+2) for j in range(n+2)), gp.GRB.MINIMIZE)
-    return
-
-def generatePaths(model, x_vars, n, filename):
-    # We try this thing to initialize our model
-    model.addConstr(gp.quicksum(x_vars[i,j] for i in range(n+2) for j in range(n+2)) >= 15)
-    model.addConstrs(gp.quicksum(x_vars[i,j] for j in range(n+2)) <= 1 for i in range(n+1))
-    for i in range(n+2):
-        for j in range(n+2):
-            if i==j or i==0 or j==0 or i==n+1 or j==n+1:
-                continue
-            else:
-                model.addConstr(x_vars[i,j] + x_vars[j,i] <= 1)
-    model.addConstr(x_vars[0,n+1] == 0)
-
-    with open(filename, "w") as f:
-        # Clean file
-        f.write("")
-
-    for i in range(100):
-        model.optimize()
-
-        print("Solution value: ", model.objVal)
-        if model.objVal:
-            selectedVars = []
-            print("Selected arcs:")
-            newPath = np.zeros((n+2, n+2))
-            for i in range(n+2):
-                for j in range(n+2):
-                    var = model.getVarByName("x["+str(i)+","+str(j)+"]")
-                    if(var.x == 1):
-                        selectedVars.append(var)
-                        newPath[i,j] = 1
-                        print(var)
-            printPath(newPath, n+2, filename)
-            for var in selectedVars:
-                model.addConstr(var == 0)
     return
 
 
@@ -120,3 +86,51 @@ def createESPModel(d, pi, q, Q, a, b, n):
 
     # model.write("ESPModel.lp")
     return model, x_vars
+
+
+"""
+def addVehicleNumberConstraint(model, vehicleNumber):
+    model.addConstr(gp.quicksum(model.getVars()) <= vehicleNumber)
+    return
+
+
+def generatePaths(model, x_vars, n, filename):
+    # We try this thing to initialize our model
+    model.addConstr(gp.quicksum(x_vars[i,j] for i in range(n+2) for j in range(n+2)) >= 15)
+    model.addConstrs(gp.quicksum(x_vars[i,j] for j in range(n+2)) <= 1 for i in range(n+1))
+    for i in range(n+2):
+        for j in range(n+2):
+            if i==j or i==0 or j==0 or i==n+1 or j==n+1:
+                continue
+            else:
+                model.addConstr(x_vars[i,j] + x_vars[j,i] <= 1)
+    model.addConstr(x_vars[0,n+1] == 0)
+
+    with open(filename, "w") as f:
+        # Clean file
+        f.write("")
+
+    for i in range(100):
+        model.optimize()
+
+        #print("Solution value: ", model.objVal)
+        try:
+            if model.objVal:
+                selectedVars = []
+                # print("Selected arcs:")
+                newPath = np.zeros((n+2, n+2))
+                for i in range(n+2):
+                    for j in range(n+2):
+                        var = model.getVarByName("x["+str(i)+","+str(j)+"]")
+                        if(var.x == 1):
+                            selectedVars.append(var)
+                            newPath[i,j] = 1
+                            # print(var)
+                printPath(newPath, n+2, filename)
+                for var in selectedVars:
+                    model.addConstr(var == 0)
+        except Exception as e:
+            break
+
+    return
+"""

@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def readData(filename, n):
     stream = ""
     with open(filename, "r") as file:
@@ -52,26 +53,53 @@ def createDistanceMatrix(x, y):
     return d
 
 
+def getMatrixAndCostFromList(nodes, d, n):
+    path = np.zeros((1,n+2,n+2))
+    cost = 0
+    for i in range(len(nodes)-1):
+        path[0,nodes[i],nodes[i+1]] = 1
+        cost += d[nodes[i], nodes[i+1]]
+
+    return path, cost
+
+
 """
 Create some dummy feasible paths for initializing the master problem. For each
 customer, create a path that starts from the depot, visits the customer and
 returns to the depot. This violates the maximum number oh vehicles, but actually
 we don't have a constraint about that.
-"""
-def initializeDummyPaths(d, n):
-    a = np.zeros((1,n+2, n+2))          # path matrix
-    a[0,0,1] = 1
-    a[0,1,-1] = 1
-    c = np.array([d[0,1] + d[1, -1]])   # costs array
 
-    for i in range(2, n+1):
+def initializeDummyPaths(d, n):
+    A = np.zeros((1,n+2, n+2))          # path matrix
+    A[0,0,-1] = 1
+    c = np.array([0])               # costs array
+
+    for i in range(1, n+1):
         path = np.zeros((1,n+2,n+2))
         path[0,0,i] = 1
         path[0,i,-1] = 1
-        a = np.append(a, path, axis=0)
+        A = np.append(A, path, axis=0)
         c = np.append(c, d[0,i] + d[i,-1])
 
-    return a, c
+    return A, c
+
+
+def initializePathsFromFile(A, c, d, n, PATH_FILENAME):
+    paths = []
+    with open(PATH_FILENAME, "r") as f:
+        paths = f.readlines()
+
+    for string in paths:
+        if not string:
+            continue
+        nodes = string[1:-2].split(",")
+        nodes = [int(node) for node in nodes]
+        path = np.zeros((1,n+2,n+2))
+        for i in range(len(nodes)-1):
+            path[0,nodes[i],nodes[i+1]] = 1
+        A = np.append(A, path, axis=0)
+
+    return A, c
 
 
 def printPath(path, dim, filename):
@@ -96,3 +124,4 @@ def printPath(path, dim, filename):
             f.write("\n")
 
     return
+"""

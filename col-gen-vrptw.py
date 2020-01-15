@@ -1,25 +1,40 @@
 from utilities import *
 from optimization import *
+from impact import initializePathsWithImpact
+
 
 INSTANCE_FILENAME = "r203.txt"
 PATH_FILENAME = "paths.txt"
 
+
 if __name__ == '__main__':
+    # Read data from file and create distance matrix
     n = 50  # number of customers
     Kdim, Q, x, y, q, a, b = readData(INSTANCE_FILENAME, n)
-
     d = createDistanceMatrix(x, y)
-    # quando dovrò aggiungere matrici, usare la funzione np.append(a, matrice, axis=0)
-    # e le matrici dovranno essere 1x52x52
-    A, c = initializeDummyPaths(d, n)
 
-    # TODO: If sign constraints are not used, delete them
+    # Initialize routes with IMPACT heuristic
+    routes = initializePathsWithImpact(d, n, a, b)
+    A = np.zeros((1,n+2,n+2))
+    A[0,0,-1] = 1
+    c = np.array([0])
+    for route in routes:
+        newPath, newCost = getMatrixAndCostFromList(route, d, n)
+        A = np.append(A, newPath, axis=0)
+        c = np.append(c, newCost)
+
+    # Create master problem model
     masterModel, masterConstraints, masterSignConstraints = \
-        createMasterRelaxedProblem(A, c, n)
+        createMasterProblem(A, c, n, Kdim)
+
     masterModel.optimize()
+    for var in masterModel.getVars():
+        print(var)
+    input()
 
     pi_i = []
     for const in masterConstraints:
+        print(const.pi)
         pi_i.append(const.pi)
     """
     # TODO: if this dual variable is not used, delete it
@@ -29,13 +44,15 @@ if __name__ == '__main__':
         #print(const.pi)
         pi_zero.append(const.pi)
     """
-    generatePathsModel, x_vars = createESPModel(d, pi_i, q, Q, a, b, n)
-    generatePaths(generatePathsModel, x_vars, n, PATH_FILENAME)
 
-    # initialize A with paths.txt
-    A, c = initializePathsFromFile(d, n, PATH_FILENAME)
-
-    # masterConstraints.append(masterModel.addConstr(gp.quicksum(model.getVars()) <= Kdim))
-    #masterModel.write("MasterVRPTW.lp")
-
-    # start cycle!
+    """
+    ESPModel, x_vars = createESPModel(d, pi_i, q, Q, a, b, n)
+    ESPModel.optimize()
+    for i in range(n+2):
+        for j in range(n+2):
+            var = ESPModel.getVarByName("x["+str(i)+","+str(j)+"]")
+            if(var.x == 1):
+                # selectedVars.append(var)
+                # newPath[i,j] = 1
+                print(var)
+    """
