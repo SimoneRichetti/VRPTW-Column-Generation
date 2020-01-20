@@ -8,3 +8,6 @@ coordinates rounded to first lower decimal". Come fare?
 -> https://stackoverflow.com/questions/1401712/how-can-the-euclidean-distance-be-calculated-with-numpy
 
 The value of time is equal to the value of distance.
+
+Il subproblem con modello per elementary shortest path è stato troncato dopo 160
+minuti. infattibile.

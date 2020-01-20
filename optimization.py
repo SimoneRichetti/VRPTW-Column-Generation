@@ -1,12 +1,15 @@
 import numpy as np
 import gurobipy as gp
+import math
 from utilities import *
 
 
 def createMasterProblem(A, costs, n, vehicleNumber):
     model = gp.Model("Master problem")
     vars = model.addVars(A.shape[0], name="y",
-                              vtype=gp.GRB.CONTINUOUS)
+                              vtype=gp.GRB.CONTINUOUS) # vtype=gp.GRB.BINARY
+    # model.addVar(Y0, integer)     vedi paper desrocher
+    # model.addVar(Yc, integer)
     model.setObjective(vars.prod(costs.tolist()), gp.GRB.MINIMIZE)
     # Constraints
     constraints = list()
@@ -27,64 +30,103 @@ def createMasterProblem(A, costs, n, vehicleNumber):
     return model, constraints, signConstraints
 
 
-def computeMaxCost(d, a, b, n):
-    # TODO: Use distance mat. to find an equivalent to infinity for subproblem
-    return max([b[i] + d[i,j] - a[j] for i in range(n+2) for j in range(n+2)])
+def subProblem(n, q, d, readyt, duedate, pi_i, pi_zero, Q):
+    # Create f list with j matrix, each matrix has dimensions (Q-q_j, b_j-a_j)
+    M = sum([d[i,j] for i in range(n+2) for j in range(n+2)])
+    f = list()
 
+    # Time windows reduction
+    a = readyt[:]; b = duedate[:]
+    update = True
+    while update:
+        update = False
+        for k in range(1,n+1):
+            # Ready Time
+            minArrPred = min([b[k], \
+                            min([a[i] + d[i,k] for i in range(n+1) if i!=k])])
+            minArrNext = min([b[k], \
+                            min([a[j] - d[k,j] for j in range(1,n+2) if j!=k])])
+            newa = math.floor(max([a[k], minArrPred, minArrNext]))
+            if newa != a[k]:
+                update = True
+            a[k] = newa
 
-def setESPModelFO(model, x_vars, pi, n, d):
+            # Due date
+            maxDepPred = max([a[k],
+                            max([b[i] + d[i,k] for i in range(n+1) if i!=k])])
+            maxDepNext = max([a[k],
+                            max([b[j] - d[k,j] for j in range(1,n+2) if j!=k])])
+            newb = math.ceil(min([b[k], maxDepPred, maxDepNext]))
+            if newb != b[k]:
+                update = True
+            b[k] = newb
+    print("Time windows optimized")
+
+    for j in range(n+2):
+        mat = np.zeros((Q-q[j], b[j] - a[j]))
+        mat += M
+        f.append(mat)
+    f[0][0,0] = 0
+    L = set()
+    L.add(0)
+
+    if sum(q) < Q:
+        Q = sum(q)
+
+    B = []
+    for qu in range(Q):
+        B.append([])
+        for t in range(max(b)):
+            B[-1].append([])
+
     rc = np.zeros((n+2,n+2))
     for i in range(n+2):
         for j in range(n+2):
-            if (i==0) or (i==n+1):
+            if (i == 0) or (i == n+1):
                 rc[i,j] = d[i,j]
             else:
-                rc[i,j] = d[i,j] - pi[i-1]
-    model.setObjective(gp.quicksum(x_vars[i,j]*rc[i,j] for i in range(n+2) \
-                                                       for j in range(n+2)), \
-                       gp.GRB.MINIMIZE)
-    return
+                rc[i,j] = d[i,j] - pi_i[i-1]
+    print("Necessary data structures initialized")
+    
+    while L:
+        nodeToExtract = None
+        for i in range(len(B)):
+            bq = B[i]
+            for qtlist in bq:
+                for node in qtlist:
+                    if node in L:
+                        nodeToExtract = node
+                        break
+        i = nodeToExtract
+        if not nodeToExtract:
+            i = L.pop()
+        else:
+            L.remove(nodeToExtract)
+        print("Extract node", i)
 
+        # io qui scrivo tutto quello che vuoi e così troviamo il costo del
+        # percorso...ma come lo trovo il percorso?
+        # Ad ogni elemento di f, ovvero ad ogni costo, è associato un percorso
+        # che lo ha generato. Ne possiamo tenere conto in una struttura dati a
+        # parte.
+        if i == n+1:
+            continue
+        for j in range(1,n+2):
+            if i == j:
+                continue
+            #print("Exploring node", j)
+            for q_tick in range(q[i], Q-q[j]):
+                for t_tick in range(a[i], b[i]):
+                    if f[i][q_tick-q[i], t_tick-a[i]] < M:
+                        for t in range(max([a[j], math.ceil(t_tick + d[i,j])]), b[j]):
+                            if f[j][q_tick, t-a[j]] > \
+                                f[i][q_tick-q[i], t_tick-a[i]] + rc[i,j]:
+                                f[j][q_tick, t-a[j]] = \
+                                    f[i][q_tick-q[i], t_tick-a[i]] + rc[i,j]
+                                B[q_tick+q[j]][t].append(j)
+                                L.add(j)
 
-def createESPModel(d, pi, q, Q, a, b, n):
-    M = computeMaxCost(d, a, b, n)
-    model = gp.Model("ESPModel")
-    x_vars = model.addVars(n+2, n+2, vtype=gp.GRB.BINARY, name="x")
-    s_vars = model.addVars(n+2, vtype=gp.GRB.CONTINUOUS, name="s")
+    print("end while")
+    input()
 
-    setESPModelFO(model, x_vars, pi, n, d)
-
-    # R0: capacity constraint
-    model.addConstr(sum([q[i] * \
-                    gp.quicksum(x_vars[i,j] for j in range(n+2)) \
-                    for i in range(1,n+1)]) <= Q)
-    # R1: depot start constraint
-    model.addConstr(gp.quicksum(x_vars[0,j] for j in range(n+2)) == 1)
-    # R2: depot finish constraint
-    model.addConstr(gp.quicksum(x_vars[i,n+1] for i in range(n+2)) == 1)
-    # R3-R53: flow costraints
-    for h in range(1,n+1):
-        model.addConstr(gp.quicksum(x_vars[i,h] for i in range(n+2)) - \
-                        gp.quicksum(x_vars[h,j] for j in range(n+2)) == 0)
-
-    # Time windows contraints
-    for i in range(n+2):
-        for j in range(n+2):
-            if j!=i:
-                model.addConstr(s_vars[i] + d[i,j] - M*(1-x_vars[i,j]) <= \
-                                s_vars[j])
-
-    # Service time constraints
-    model.addConstrs(s_vars[i] >= a[i] for i in range(1,n+1))
-    model.addConstrs(s_vars[i] <= b[i] for i in range(1,n+1))
-
-    # Goodsense constraints:
-    # Must not exist an arc that connects a customer with himself
-    model.addConstr(gp.quicksum(x_vars[i,i] for i in range(n+2)) == 0)
-    # No arc can enter in the first node
-    model.addConstr(gp.quicksum(x_vars[i,0] for i in range(n+2)) == 0)
-    # No arc can exit from the last node
-    model.addConstr(gp.quicksum(x_vars[n+1,j] for j in range(n+2)) == 0)
-
-    # model.write("ESPModel.lp")
-    return model
+    return f

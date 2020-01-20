@@ -9,7 +9,7 @@ PATH_FILENAME = "paths.txt"
 
 if __name__ == '__main__':
     # Read data from file and create distance matrix
-    n = 50  # number of customers
+    n = 25  # number of customers
     Kdim, Q, x, y, q, a, b = readData(INSTANCE_FILENAME, n)
     d = createDistanceMatrix(x, y)
 
@@ -34,17 +34,18 @@ if __name__ == '__main__':
 
     pi_i = []
     for const in masterConstraints:
-        print(const.pi)
+        #print(const.pi)
         pi_i.append(const.pi)
-    """
+
     # TODO: if this dual variable is not used, delete it
     pi_zero = []
     #print("pi_zero")
     for const in masterSignConstraints:
         #print(const.pi)
         pi_zero.append(const.pi)
-    """
 
+    subProblem(n, q, d, a, b, pi_i, pi_zero, Q)
+    """
     ESPModel = createESPModel(d, pi_i, q, Q, a, b, n)
     ESPModel.optimize()
     for i in range(n+2):
@@ -54,3 +55,4 @@ if __name__ == '__main__':
                 # selectedVars.append(var)
                 # newPath[i,j] = 1
                 print(var)
+    """
