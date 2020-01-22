@@ -9,7 +9,7 @@ PATH_FILENAME = "paths.txt"
 
 if __name__ == '__main__':
     # Read data from file and create distance matrix
-    n = 25  # number of customers
+    n = 5  # number of customers
     Kdim, Q, x, y, q, a, b = readData(INSTANCE_FILENAME, n)
     d = createDistanceMatrix(x, y)
 
@@ -23,36 +23,70 @@ if __name__ == '__main__':
         A = np.append(A, newPath, axis=0)
         c = np.append(c, newCost)
 
-    # Create master problem model
-    masterModel, masterConstraints, masterSignConstraints = \
-        createMasterProblem(A, c, n, Kdim)
+    rc = np.zeros((n+2,n+2))    # reduced costs
+    iter = 1
 
-    masterModel.optimize()
-    for var in masterModel.getVars():
-        print(var)
-    input()
+    while True:
+        print("Iter", iter)
+        # Create master problem model
+        masterModel, masterConstraints = createMasterProblem(A, c, n, Kdim)
 
-    pi_i = []
-    for const in masterConstraints:
-        #print(const.pi)
-        pi_i.append(const.pi)
+        masterModel.optimize()
+        #for var in masterModel.getVars():
+            #print(var)
+        #input()
 
-    # TODO: if this dual variable is not used, delete it
-    pi_zero = []
-    #print("pi_zero")
-    for const in masterSignConstraints:
-        #print(const.pi)
-        pi_zero.append(const.pi)
+        pi_i = []
+        for const in masterConstraints:
+            #print(const.pi)
+            pi_i.append(const.pi)
 
-    subProblem(n, q, d, a, b, pi_i, pi_zero, Q)
-    """
-    ESPModel = createESPModel(d, pi_i, q, Q, a, b, n)
-    ESPModel.optimize()
-    for i in range(n+2):
-        for j in range(n+2):
-            var = ESPModel.getVarByName("x["+str(i)+","+str(j)+"]")
-            if(var.x == 1):
-                # selectedVars.append(var)
-                # newPath[i,j] = 1
-                print(var)
-    """
+
+        for i in range(n+2):
+            for j in range(n+2):
+                if (i == 0) or (i == n+1):
+                    rc[i,j] = d[i,j]
+                else:
+                    rc[i,j] = d[i,j] - pi_i[i-1]
+        #print(rc)
+        if np.amin(rc) >= -1e-9:
+            break
+        """
+        # TODO: if this dual variable is not used, delete it
+        pi_zero = []
+        #print("pi_zero")
+        for const in masterSignConstraints:
+            #print(const.pi)
+            pi_zero.append(const.pi)
+        """
+        newRoute, newRC = subProblem(n, q, d, a, b, rc, Q)
+        if not newRoute:
+            break
+        routes.append(newRoute)
+        newPath, newCost = getMatrixAndCostFromList(newRoute, d, n)
+        A = np.append(A, newPath, axis=0)
+        c = np.append(c, newCost)
+        iter += 1
+
+
+    print("I finished bitch")
+    print(masterModel.getVars())
+    vs = masterModel.getVars()
+    for i in range(len(vs)):
+        if vs[i].x == 1.:
+            print(routes[i-1])
+
+
+
+
+"""
+ESPModel = createESPModel(d, pi_i, q, Q, a, b, n)
+ESPModel.optimize()
+for i in range(n+2):
+    for j in range(n+2):
+        var = ESPModel.getVarByName("x["+str(i)+","+str(j)+"]")
+        if(var.x == 1):
+            # selectedVars.append(var)
+            # newPath[i,j] = 1
+            print(var)
+"""
