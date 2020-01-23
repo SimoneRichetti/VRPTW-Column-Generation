@@ -3,14 +3,13 @@ from optimization import *
 from impact import initializePathsWithImpact
 from timeit import default_timer as timer
 
-
 INSTANCE_FILENAME = "r203.txt"
 PATH_FILENAME = "paths.txt"
 
 
 if __name__ == '__main__':
     # Read data from file and create distance matrix
-    n = 5  # number of customers
+    n = 3  # number of customers
     Kdim, Q, x, y, q, a, b = readData(INSTANCE_FILENAME, n)
     d = createDistanceMatrix(x, y)
 
@@ -19,15 +18,11 @@ if __name__ == '__main__':
 
     # Initialize routes with IMPACT heuristic
     routes = initializePathsWithImpact(d, n, a, b)
-    # TODO: change A in customers x path matrix, where a_ip is the number of
-    # times that path p visits customer i
-    A = np.zeros((1,n+2,n+2))
-    A[0,0,-1] = 1
-    c = np.array([0])
-    for route in routes:
-        newPath, newCost = getMatrixAndCostFromList(route, d, n)
-        A = np.append(A, newPath, axis=0)
-        c = np.append(c, newCost)
+    # A_pi = times that path p visits customer i
+    A = np.zeros((n+2, len(routes)))
+    c = np.zeros(len(routes))   # routes costs
+    addRoutesToMaster(routes, A, c, d)
+
     rc = np.zeros((n+2,n+2))    # reduced costs
     iter = 1
 
@@ -37,9 +32,7 @@ if __name__ == '__main__':
         masterModel, masterConstraints = createMasterProblem(A, c, n, Kdim)
         masterModel.optimize()
 
-        pi_i = []
-        for const in masterConstraints:
-            pi_i.append(const.pi)
+        pi_i = [const.pi for const in masterConstraints]
 
         for i in range(n+2):
             for j in range(n+2):
@@ -51,11 +44,12 @@ if __name__ == '__main__':
         newRoutes = subProblem(n, q, d, a, b, rc, Q)
         if not newRoutes:
             break
-        for route in newRoutes:
-            routes.append(route)
-            newPath, newCost = getMatrixAndCostFromList(route, d, n)
-            A = np.append(A, newPath, axis=0)
-            c = np.append(c, newCost)
+        newMat = np.zeros((n+2, len(newRoutes)))
+        newCosts = np.zeros(len(newRoutes))
+        addRoutesToMaster(newRoutes, newMat, newCosts, d)
+        routes += newRoutes
+        c = np.append(c, newCosts)
+        A = np.c_[A, newMat]
         iter += 1
 
     end = timer()
@@ -64,5 +58,5 @@ if __name__ == '__main__':
     print("Solution cost:", masterModel.getAttr("ObjVal"))
     vs = masterModel.getVars()
     for i in range(len(vs)):
-        if vs[i].x == 1.:
-            print(routes[i-1])
+        if vs[i].x > 0.:
+            print(vs[i].x, "  ", routes[i])

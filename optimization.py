@@ -7,20 +7,15 @@ from utilities import *
 def createMasterProblem(A, costs, n, vehicleNumber):
     model = gp.Model("Master problem")
     model.Params.OutputFlag = 0
-    vars = model.addVars(A.shape[0], name="y",
+    vars = model.addVars(A.shape[1], name="y",
                               vtype=gp.GRB.CONTINUOUS) # vtype=gp.GRB.BINARY
     #yZero = model.addVar(name="Y0", vtype=gp.GRB.INTEGER)
     #yC = model.addVar(name="Yc", vtype=gp.GRB.INTEGER)
     model.setObjective(vars.prod(costs.tolist()), gp.GRB.MINIMIZE)
     # Constraints
     constraints = list()
-    for i in range(1,n+1):      # for each customer
-        a_ip = np.array([])
-        for p in range(A.shape[0]):     # for each path
-            # append to the list the number of times path p visits customer i
-            a_ip = np.append(a_ip, np.sum(A[p,i]))
-        constraints.append(model.addConstr(vars.prod(a_ip.tolist()),
-                            gp.GRB.EQUAL, 1))
+    for i in range(1,n+1):
+        constraints.append(model.addConstr(vars.prod(A[i,:].tolist()) == 1))
 
     #model.addConstr(gp.quicksum(vars) <= vehicleNumber)
 
@@ -30,6 +25,7 @@ def createMasterProblem(A, costs, n, vehicleNumber):
         signConstraints.append(model.addConstr(vars[p], gp.GRB.GREATER_EQUAL, 0))
     """
     model.write("MasterModel.lp")
+    #input()
 
     return model, constraints
 
@@ -169,5 +165,5 @@ def subProblem(n, q, d, readyt, duedate, rc, Q):
             rcosts.append(f[n+1][qBest[i]][tBest[i]])
 
     print("New routes:", routes)
-    print("Costs:", rcosts)
+    #print("Costs:", rcosts)
     return routes

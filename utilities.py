@@ -59,5 +59,14 @@ def getMatrixAndCostFromList(nodes, d, n):
     for i in range(len(nodes)-1):
         path[0,nodes[i],nodes[i+1]] = 1
         cost += d[nodes[i], nodes[i+1]]
-
     return path, cost
+
+
+def addRoutesToMaster(routes, mat, costs, d):
+    for i in range(len(routes)):
+        cost = 0.
+        for j in range(len(routes[i])):
+            if j != len(routes[i])-1:
+                cost += d[routes[i][j], routes[i][j+1]]
+            mat[routes[i][j],i] += 1
+        costs[i] = cost
