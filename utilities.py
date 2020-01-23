@@ -61,21 +61,3 @@ def getMatrixAndCostFromList(nodes, d, n):
         cost += d[nodes[i], nodes[i+1]]
 
     return path, cost
-
-
-def getListFromMatrix(path, dim):
-    nodes = list()
-    nodes.append(0)
-    actualNode = 0
-    while True:
-        thereIsOne = False
-        for j in range(dim):
-            if path[actualNode, j] == 1:
-                nodes.append(j)
-                actualNode = j
-                thereIsOne = True
-                break
-
-        if not thereIsOne:
-            break
-        return nodes

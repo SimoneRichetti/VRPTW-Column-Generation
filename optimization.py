@@ -22,13 +22,14 @@ def createMasterProblem(A, costs, n, vehicleNumber):
         constraints.append(model.addConstr(vars.prod(a_ip.tolist()),
                             gp.GRB.EQUAL, 1))
 
-    model.addConstr(gp.quicksum(vars) <= vehicleNumber)
+    #model.addConstr(gp.quicksum(vars) <= vehicleNumber)
 
     """
     signConstraints = list()
     for p in range(A.shape[0]):
         signConstraints.append(model.addConstr(vars[p], gp.GRB.GREATER_EQUAL, 0))
     """
+    model.write("MasterModel.lp")
 
     return model, constraints
 
@@ -36,8 +37,8 @@ def createMasterProblem(A, costs, n, vehicleNumber):
 
 def subProblem(n, q, d, readyt, duedate, rc, Q):
     # Create f list with j matrix, each matrix has dimensions (Q-q_j, b_j-a_j)
-    M = sum([d[i,j] for i in range(n+2) for j in range(n+2)])
-
+    #M = sum([d[i,j] for i in range(n+2) for j in range(n+2)])
+    M = gp.GRB.INFINITY
     # Time windows reduction
     a = readyt[:]; b = duedate[:]
     update = True
@@ -63,13 +64,18 @@ def subProblem(n, q, d, readyt, duedate, rc, Q):
             if newb != b[k]:
                 update = True
             b[k] = newb
-    #print("Time windows optimized")
 
+    # Reduce max capacity to boost algorithm
+    if sum(q) < Q:
+        Q = sum(q)
+    T = max(b)
+
+    # Init necessary data structure
     f = list()
     p = list()
-    f_tick = list()
+    #f_tick = list()
     paths = []
-    paths_tick = []
+    #paths_tick = []
     for j in range(n+2):
         nodeList = []
         for qt in range(Q-q[j]):
@@ -78,55 +84,46 @@ def subProblem(n, q, d, readyt, duedate, rc, Q):
                 qtList.append([])
             nodeList.append(qtList)
         paths.append(nodeList)
-        paths_tick.append(nodeList)
+        #paths_tick.append(nodeList)
         mat = np.zeros((Q-q[j], b[j] - a[j]))
         p.append(mat - 1)
         f.append(mat + M)
-        f_tick.append(mat + M)
+        #f_tick.append(mat + M)
 
     f[0][0,0] = 0
+    #f_tick[0][0,0] = 0
     L = set()
     L.add(0)
 
-    if sum(q) < Q:
-        Q = sum(q)
-
+    # Implement bucket list for smart node extraction
     B = []
     for qu in range(Q):
         B.append([])
         for t in range(max(b)):
             B[-1].append([])
 
-
-    #print("Necessary data structures initialized")
-
+    # Algorithm
     while L:
-        nodeToExtract = None
-        for i in range(len(B)):
-            bq = B[i]
-            for qtlist in bq:
+        # Find best node to extract
+        i = None
+        for k in range(len(B)):
+            for qtlist in B[k]:
                 for node in qtlist:
                     if node in L:
-                        nodeToExtract = node
+                        nodeToExtract = qtlist.pop(qtlist.index(node))
                         break
-        i = nodeToExtract
-        if not nodeToExtract:
+        if not i:
             i = L.pop()
         else:
-            L.remove(nodeToExtract)
-        #print("Extract node", i, flush=True)
-
-        # io qui scrivo tutto quello che vuoi e così troviamo il costo del
-        # percorso...ma come lo trovo il percorso?
-        # Ad ogni elemento di f, ovvero ad ogni costo, è associato un percorso
-        # che lo ha generato. Ne possiamo tenere conto in una struttura dati a
-        # parte.
+            L.remove(i)
         if i == n+1:
             continue
+
+        # Explore all possible arcs (i,j)
         for j in range(1,n+2):
             if i == j:
                 continue
-            #print("Exploring node", j)
+
             for q_tick in range(q[i], Q-q[j]):
                 for t_tick in range(a[i], b[i]):
                     #if p[i][q_tick-q[i], t_tick-a[i]] != j: # last node before i is not j
@@ -138,7 +135,7 @@ def subProblem(n, q, d, readyt, duedate, rc, Q):
                                     f[j][q_tick, t-a[j]]=f[i][q_tick-q[i], t_tick-a[i]]+rc[i,j]
                                     # update path that leads to node j
                                     paths[j][q_tick][t-a[j]] = paths[i][q_tick-q[i]][t_tick-a[i]] + [j]
-                                    # update buket list
+                                    # update bucket list
                                     B[q_tick+q[j]][t].append(j)
                                     # update f'
                                     """if p[j][q_tick, t-a[j]] != i:
@@ -161,11 +158,16 @@ def subProblem(n, q, d, readyt, duedate, rc, Q):
                                     p[j][q_tick, t-a[j]] = i
                                     L.add(j)"""
 
-    #print("end while")
-    best = np.amin(f[n+1])
-    if best >= -1e-9:
-        return None, None
-    qBest, tBest = np.where(f[n+1] == best)
-    path = [0] + paths[n+1][qBest[-1]][tBest[-1]]
-    print("New route:", path, ", cost:", best)
-    return path, best
+    # Return all the routes with negative cost
+    routes = list()
+    rcosts = list()
+    qBest, tBest = np.where(f[n+1] < -1e-9)
+    for i in range(len(qBest)):
+        newRoute = [0] + paths[n+1][qBest[i]][tBest[i]]
+        if not newRoute in routes:
+            routes.append(newRoute)
+            rcosts.append(f[n+1][qBest[i]][tBest[i]])
+
+    print("New routes:", routes)
+    print("Costs:", rcosts)
+    return routes
