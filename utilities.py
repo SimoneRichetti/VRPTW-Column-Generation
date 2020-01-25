@@ -42,7 +42,6 @@ def readData(filename, n):
 
 
 def createDistanceMatrix(x, y):
-    # TODO: arrotondare distanze a prima cifra decimale
     n = len(x)
     d = np.zeros((n,n))
     for i in range(n):

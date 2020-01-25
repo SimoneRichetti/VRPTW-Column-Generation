@@ -8,32 +8,17 @@ def createMasterProblem(A, costs, n, vehicleNumber):
     model = gp.Model("Master problem")
     model.Params.OutputFlag = 0
     vars = model.addVars(A.shape[1], name="y",
-                              vtype=gp.GRB.CONTINUOUS) # vtype=gp.GRB.BINARY
-    #yZero = model.addVar(name="Y0", vtype=gp.GRB.INTEGER)
-    #yC = model.addVar(name="Yc", vtype=gp.GRB.INTEGER)
+                              vtype=gp.GRB.CONTINUOUS)
     model.setObjective(vars.prod(costs.tolist()), gp.GRB.MINIMIZE)
     # Constraints
-    constraints = list()
-    for i in range(1,n+1):
-        constraints.append(model.addConstr(vars.prod(A[i,:].tolist()) == 1))
-
-    #model.addConstr(gp.quicksum(vars) <= vehicleNumber)
-
-    """
-    signConstraints = list()
-    for p in range(A.shape[0]):
-        signConstraints.append(model.addConstr(vars[p], gp.GRB.GREATER_EQUAL, 0))
-    """
+    constraints = model.addConstrs(vars.prod(A[i,:].tolist()) == 1 for i in range(1,n+1))
     model.write("MasterModel.lp")
-    #input()
 
     return model, constraints
 
 
 
 def subProblem(n, q, d, readyt, duedate, rc, Q):
-    # Create f list with j matrix, each matrix has dimensions (Q-q_j, b_j-a_j)
-    #M = sum([d[i,j] for i in range(n+2) for j in range(n+2)])
     M = gp.GRB.INFINITY
     # Time windows reduction
     a = readyt[:]; b = duedate[:]
@@ -67,11 +52,12 @@ def subProblem(n, q, d, readyt, duedate, rc, Q):
     T = max(b)
 
     # Init necessary data structure
-    f = list()
-    p = list()
-    #f_tick = list()
+    f = list()  # paths cost data struct
+    p = list()  # paths predecessor data struct
+    f_tick = list()     # cost of the best path that does not pass for
+                        # predecessor
     paths = []
-    #paths_tick = []
+    paths_tick = []
     for j in range(n+2):
         nodeList = []
         for qt in range(Q-q[j]):
@@ -80,15 +66,15 @@ def subProblem(n, q, d, readyt, duedate, rc, Q):
                 qtList.append([])
             nodeList.append(qtList)
         paths.append(nodeList)
-        #paths_tick.append(nodeList)
+        paths_tick.append(nodeList)
         mat = np.zeros((Q-q[j], b[j] - a[j]))
         p.append(mat - 1)
         f.append(mat + M)
-        #f_tick.append(mat + M)
+        f_tick.append(mat + M)
 
     f[0][0,0] = 0
-    #f_tick[0][0,0] = 0
-    L = set()
+    f_tick[0][0,0] = 0
+    L = set()   # Node to explore
     L.add(0)
 
     # Implement bucket list for smart node extraction
@@ -122,8 +108,7 @@ def subProblem(n, q, d, readyt, duedate, rc, Q):
 
             for q_tick in range(q[i], Q-q[j]):
                 for t_tick in range(a[i], b[i]):
-                    #if p[i][q_tick-q[i], t_tick-a[i]] != j: # last node before i is not j
-                    if True:
+                    if True: # p[i][q_tick-q[i], t_tick-a[i]] != j:
                         if f[i][q_tick-q[i], t_tick-a[i]] < M:
                             for t in range(max([a[j], math.ceil(t_tick + d[i,j])]), b[j]):
                                 if f[j][q_tick, t-a[j]]>f[i][q_tick-q[i], t_tick-a[i]]+rc[i,j]:
@@ -133,26 +118,26 @@ def subProblem(n, q, d, readyt, duedate, rc, Q):
                                     paths[j][q_tick][t-a[j]] = paths[i][q_tick-q[i]][t_tick-a[i]] + [j]
                                     # update bucket list
                                     B[q_tick+q[j]][t].append(j)
-                                    # update f'
-                                    """if p[j][q_tick, t-a[j]] != i:
-                                        f_tick[j][q_tick, t-a[j]] = f[i][q_tick-q[i], t_tick-a[i]]+rc[i,j]
-                                        # update path that leads to node j without passing from i
-                                        paths_tick[j][q_tick][t-a[j]] = paths[i][q_tick-q[i]][t_tick-a[i]] + [j]"""
-                                    # Update last node in path
+                                    # Update predecessor
                                     p[j][q_tick, t-a[j]] = i
                                     L.add(j)
-                    """else:
-                        if f_tick[i][q_tick-q[i], t_tick-a[i]] < M:
-                            for t in range(max([a[j], math.ceil(t_tick + d[i,j])]), b[j]):
-                                if f[j][q_tick, t-a[j]]>f_tick[i][q_tick-q[i], t_tick-a[i]]+rc[i,j]:
-                                    f[j][q_tick, t-a[j]]=f_tick[i][q_tick-q[i], t_tick-a[i]]+rc[i,j]
-                                    paths[j][q_tick][t-a[j]] = paths_tick[i][q_tick-q[i]][t_tick-a[i]] + [j]
-                                    B[q_tick+q[j]][t].append(j)
-                                    if p[j][q_tick, t-a[j]] != i:
-                                        f_tick[j][q_tick, t-a[j]] = f_tick[i][q_tick-q[i], t_tick-a[i]]+rc[i,j]
-                                        paths_tick[j][q_tick][t-a[j]] = paths_tick[i][q_tick-q[i]][t_tick-a[i]] + [j]
-                                    p[j][q_tick, t-a[j]] = i
-                                    L.add(j)"""
+                                # If the path is suitable to be the alternative
+                                # if p[j][q_tick, t-a[j]] != i and f_tick[j][q_tick, t-a[j]]>f[i][q_tick-q[i], t_tick-a[i]]+rc[i,j]:
+                                #     f_tick[j][q_tick, t-a[j]] = f[i][q_tick-q[i], t_tick-a[i]]+rc[i,j]
+                                #     paths_tick[j][q_tick][t-a[j]] = paths[i][q_tick-q[i]][t_tick-a[i]] + [j]
+                    # else:       # if predecessor of i is j
+                    #     if f_tick[i][q_tick-q[i], t_tick-a[i]] < M:
+                    #         for t in range(max([a[j], math.ceil(t_tick + d[i,j])]), b[j]):
+                    #             if f[j][q_tick, t-a[j]]>f_tick[i][q_tick-q[i], t_tick-a[i]]+rc[i,j]:
+                    #                 # update f, path and bucket
+                    #                 f[j][q_tick, t-a[j]]=f_tick[i][q_tick-q[i], t_tick-a[i]]+rc[i,j]
+                    #                 paths[j][q_tick][t-a[j]] = paths_tick[i][q_tick-q[i]][t_tick-a[i]] + [j]
+                    #                 B[q_tick+q[j]][t].append(j)
+                    #                 p[j][q_tick, t-a[j]] = i
+                    #                 L.add(j)
+                    #             if p[j][q_tick, t-a[j]] != i and f_tick[j][q_tick, t-a[j]]>f_tick[i][q_tick-q[i], t_tick-a[i]]+rc[i,j]:
+                    #                 f_tick[j][q_tick, t-a[j]] = f_tick[i][q_tick-q[i], t_tick-a[i]]+rc[i,j]
+                    #                 paths_tick[j][q_tick][t-a[j]] = paths_tick[i][q_tick-q[i]][t_tick-a[i]] + [j]
 
     # Return all the routes with negative cost
     routes = list()
@@ -165,5 +150,4 @@ def subProblem(n, q, d, readyt, duedate, rc, Q):
             rcosts.append(f[n+1][qBest[i]][tBest[i]])
 
     print("New routes:", routes)
-    #print("Costs:", rcosts)
     return routes

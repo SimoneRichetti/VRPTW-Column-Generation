@@ -6,6 +6,14 @@ from timeit import default_timer as timer
 INSTANCE_FILENAME = "r203.txt"
 PATH_FILENAME = "paths.txt"
 
+### TODOS ###
+# Add 2-cycle elimination
+# Add branch and bound
+# Delete unused functions
+# Use numpy where possible
+# (Optional) Plot routes
+######
+
 
 if __name__ == '__main__':
     # Read data from file and create distance matrix
@@ -32,7 +40,7 @@ if __name__ == '__main__':
         masterModel, masterConstraints = createMasterProblem(A, c, n, Kdim)
         masterModel.optimize()
 
-        pi_i = [const.pi for const in masterConstraints]
+        pi_i = [const.pi for const in masterConstraints.values()]
 
         for i in range(n+2):
             for j in range(n+2):
@@ -44,6 +52,11 @@ if __name__ == '__main__':
         newRoutes = subProblem(n, q, d, a, b, rc, Q)
         if not newRoutes:
             break
+        for route in newRoutes:
+            if route in routes:
+                print("\nERROR: DUPLICATE PATH\n")
+                break
+
         newMat = np.zeros((n+2, len(newRoutes)))
         newCosts = np.zeros(len(newRoutes))
         addRoutesToMaster(newRoutes, newMat, newCosts, d)
@@ -54,9 +67,12 @@ if __name__ == '__main__':
 
     end = timer()
     print("+++RESULTS+++")
-    print("Time Elapsed:", end-start)
+    sec = int(end-start)
+    min = int(sec / 60)
+    sec %=  60
+    print("Time Elapsed:", min, "minutes", sec, "s")
     print("Solution cost:", masterModel.getAttr("ObjVal"))
     vs = masterModel.getVars()
     for i in range(len(vs)):
         if vs[i].x > 0.:
-            print(vs[i].x, "  ", routes[i])
+            print(round(vs[i].x, 3), "   ", routes[i])
