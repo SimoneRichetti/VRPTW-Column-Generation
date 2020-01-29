@@ -30,9 +30,9 @@ def computeISIULD(posU, route, arr, s, a, b, d, Jminu):
     IU = 1/(max([len(Jminu), 1])) * sum([max([b[n]-a[u]-d[u,n], b[u]-a[n]-d[u,n]]) \
                                 for n in Jminu])
     c1 = (d[i,u] + d[u,j] - d[i,j])
-    c2 = ((b[j]- (arr[posI] + s[posI] + d[i,j])) - \
-                (b[j] - (arr[posU] + s[posU] + d[i,j])))
-    c3 = (b[u] - (arr[posI] + s[posI] + d[i,u]))
+    c2 = ((b[j]- (arr[posI] + d[i,j])) - \
+                (b[j] - (arr[posU] + d[i,j])))
+    c3 = (b[u] - (arr[posI] + d[i,u]))
     LD = b1*c1 + b2*c2 + b3*c3
 
     return IS, IU, LD
