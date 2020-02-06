@@ -6,6 +6,9 @@ distanza tra i clienti.
 the distance, distances and durations use Euclidian distances between pairs of
 coordinates rounded to first lower decimal". Come fare?
 -> https://stackoverflow.com/questions/1401712/how-can-the-euclidean-distance-be-calculated-with-numpy
+Alla fine ho scelto di far diventare intere le distanze dal momento in cui
+venivano usate anche come tempo e quindi per calcolare le finestre temporali.
+Per semplicità.
 
 The value of time is equal to the value of distance.
 

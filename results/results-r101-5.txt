@@ -1,0 +1,5 @@
+Impact solution cost: 187.0
+Impact solution: [[0, 4, 6], [0, 3, 6], [0, 5, 2, 6], [0, 1, 6]]
+Exact solution cost: 142.0
+1.0   [0, 3, 1, 6]
+1.0   [0, 5, 2, 4, 6]

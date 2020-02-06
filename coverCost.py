@@ -1,13 +1,57 @@
 from utilities import *
 from collections import Counter
+import os
 
-ROUTES_FILENAME = "r203-5-customers-routes.txt"
+
+ROUTES_FILENAME = "c101-25-customers-routes.txt"
+
+
+def coverCostHeuristic(bestIndex, allRoutes, allCosts, allCoverCost):
+    nodes = set(range(1,n+1))
+    routes = allRoutes[:]
+    costs = allCosts[:]
+    coverCost = allCoverCost[:]
+
+    for node in routes[bestIndex][1:-1]:
+        nodes.remove(node)
+    sol = [routes[bestIndex]]
+    solCost = costs[bestIndex]
+
+    # Start loop
+    while nodes:
+        filteredRoutes = []
+        filteredCosts = []
+        filteredCoverCost = []
+        for i in range(len(routes)):
+            feasible = True
+            for node in routes[i][1:-1]:
+                if not node in nodes:
+                    feasible = False
+                    break
+            if feasible:
+                filteredRoutes.append(routes[i])
+                filteredCosts.append(costs[i])
+                filteredCoverCost.append(coverCost[i])
+        if not filteredRoutes:
+            return None
+
+        bestIdx = filteredCoverCost.index(max(filteredCoverCost))
+        sol.append(filteredRoutes[bestIdx])
+        solCost += filteredCosts[bestIdx]
+        for node in filteredRoutes[bestIdx][1:-1]:
+            nodes.remove(node)
+        routes = filteredRoutes[:]
+        costs = filteredCosts[:]
+
+    return (sol, solCost)
+
+
 if __name__ == "__main__":
     # Read CG generated routes
     lines = []
-    with open(ROUTES_FILENAME, "r") as fin:
+    with open(os.path.join("routes", ROUTES_FILENAME), "r") as fin:
         lines = fin.readlines()
-    INSTANCE_FILENAME = lines.pop(0).rstrip()
+    INSTANCE_FILENAME = lines.pop(0).rstrip() + ".txt"
     allRoutes = [list(map(int, line[1:-2].split(", "))) for line in lines]
     n = int(ROUTES_FILENAME.split("-")[1])
 
@@ -20,7 +64,7 @@ if __name__ == "__main__":
             routes.append(route)
 
     # Create distance matrix and routes costs
-    Kdim, Q, x, y, q, a, b = readData(INSTANCE_FILENAME, n)
+    Kdim, Q, x, y, q, a, b = readData(os.path.join("solomon-instances", INSTANCE_FILENAME), n)
     d = createDistanceMatrix(x, y)
     costs = []
     for route in routes:
@@ -29,38 +73,25 @@ if __name__ == "__main__":
             cost += d[route[i], route[i+1]]
         costs.append(cost)
 
-    # Find route with best coverage/cost ratio and add it to the sol
+    # Find coverage/cost ratio off the routes
     coverCost = [(len(routes[i])-2)/costs[i] for i in range(len(routes))]
-    bestIndex = coverCost.index(max(coverCost))
-    #print(routes[bestIndex], costs[bestIndex], coverCost[bestIndex])
-    for node in routes[bestIndex][1:-1]:
-        nodes.remove(node)
-    sol = [routes[bestIndex]]
-    solCost = costs[bestIndex]
+    idxBestCoverCost = sorted(coverCost, reverse = True)
+    if len(idxBestCoverCost) > 100:
+       idxBestCoverCost =idxBestCoverCost[:100]
+    # Find indexes of the 10 paths with the best cover cost
+    idxBestCoverCost = set([coverCost.index(idxBestCoverCost[i]) \
+                            for i in range(len(idxBestCoverCost))])
 
-    # Start loop
-    while nodes:
-        filteredRoutes = []
-        filteredCosts = []
-        for i in range(len(routes)):
-            feasible = True
-            for node in routes[i][1:-1]:
-                if not node in nodes:
-                    feasible = False
-                    break
-            if feasible:
-                filteredRoutes.append(routes[i])
-                filteredCosts.append(costs[i])
+    solutions = []
+    solutionCosts = []
+    for bestIndex in idxBestCoverCost:
+        info = coverCostHeuristic(bestIndex, routes, costs, coverCost)
+        if info:
+            solutions.append(info[0])
+            solutionCosts.append(info[1])
 
-        filteredCoverCost = [(len(filteredRoutes[i])-2)/filteredCosts[i] for i in range(len(filteredRoutes))]
-        bestIdx = filteredCoverCost.index(max(filteredCoverCost))
-        sol.append(filteredRoutes[bestIdx])
-        solCost += filteredCosts[bestIdx]
-        for node in filteredRoutes[bestIdx][1:-1]:
-            nodes.remove(node)
-        routes = filteredRoutes[:]
-        costs = filteredCosts[:]
-
+    solCost = min(solutionCosts)
+    sol = solutions[solutionCosts.index(solCost)]
     print("+++RESULTS+++")
     print("Solution cost:", solCost)
     print("Solution:", sol)

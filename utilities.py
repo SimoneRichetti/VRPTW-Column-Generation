@@ -7,9 +7,12 @@ def readData(filename, n):
         stream = file.readlines()
     if stream == "":
         print("Error in reading file")
+    else:
+        print("Read file", filename)
 
     vehicleNumber, capacity = [int(i) for i in stream[4].split()]
-    fields = stream[7].split()
+    fields = ("CUST-NO.", "XCOORD.", "YCOORD.", "DEMAND", "READY-TIME", \
+                "DUE-DATE", "SERVICE-TIME")
     data = list()
     for i in range(9, len(stream)):
         if stream[i] == "\n":
@@ -50,7 +53,7 @@ def createDistanceMatrix(x, y):
 
 def addRoutesToMaster(routes, mat, costs, d):
     for i in range(len(routes)):
-        cost = 0.
+        cost = d[routes[i][0],routes[i][1]]
         for j in range(1,len(routes[i])-1):
             cost += d[routes[i][j], routes[i][j+1]]
             mat[routes[i][j]-1,i] += 1

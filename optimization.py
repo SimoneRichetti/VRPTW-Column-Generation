@@ -11,7 +11,6 @@ def createMasterProblem(A, costs, n, vehicleNumber):
     model.setObjective(costs @ y, gp.GRB.MINIMIZE)
     # Constraints
     model.addConstr(A @ y == np.ones(A.shape[0]))
-    model.addConstr(y.sum() <= min(vehicleNumber, n-1))
     model.write("MasterModel.lp")
 
     return model
@@ -78,31 +77,11 @@ def subProblem(n, q, d, readyt, duedate, rc, Q):
     f_tk[0][0,0] = 0
     L = set()   # Node to explore
     L.add(0)
-    # Implement bucket list for smart node extraction
-    B = []
-    for qu in range(Q):
-        B.append([])
-        for t in range(max(b)):
-            B[-1].append([])
 
     # Algorithm
     while L:
-        # Find best node to extract
-        i = None
-        for k in range(len(B)):
-            for qtlist in B[k]:
-                for node in qtlist:
-                    if node in L:
-                        #i = qtlist.pop(qtlist.index(node))
-                        i = node
-                        break
-        if not i:
-            i = L.pop()
-        else:
-            L.remove(i)
         if i == n+1:
             continue
-        #print("Extract", i)
 
         # Explore all possible arcs (i,j)
         for j in range(1,n+2):
@@ -131,8 +110,6 @@ def subProblem(n, q, d, readyt, duedate, rc, Q):
                                     # update path that leads to node j
                                     paths[j][q_tk][t-a[j]] = \
                                             paths[i][q_tk-q[i]][t_tk-a[i]] + [j]
-                                    # update bucket list
-                                    B[q_tk+q[j]][t].append(j)
                                     # Update predecessor
                                     p[j][q_tk, t-a[j]] = i
                                     L.add(j)
@@ -166,7 +143,6 @@ def subProblem(n, q, d, readyt, duedate, rc, Q):
                                         f_tk[i][q_tk-q[i],t_tk-a[i]] + rc[i,j]
                                     paths[j][q_tk][t-a[j]] = \
                                         paths_tk[i][q_tk-q[i]][t_tk-a[i]] + [j]
-                                    B[q_tk+q[j]][t].append(j)
                                     p[j][q_tk,t-a[j]] = i
                                     L.add(j)
                                 # if the alternative path of i is suitable to

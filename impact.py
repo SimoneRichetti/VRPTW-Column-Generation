@@ -14,8 +14,10 @@ def insertNode(route, node, position, s, arr, d, a):
     return newRoute, newS, newArr
 
 
-def routeIsFeasible(route, a, b, s, d):
-    # TODO: add capacity check for feasibility
+def routeIsFeasible(route, a, b, s, d, q, Q):
+    cap = sum([q[node] for node in route])
+    if cap > Q:
+        return False
     for i in range(len(route)):
         if not ((s[i] >= a[route[i]]) and (s[i] <= b[route[i]])):
             return False
@@ -58,7 +60,7 @@ def computeRouteCost(route, d):
     return cost
 
 
-def initializePathsWithImpact(d, n, a, b):
+def initializePathsWithImpact(d, n, a, b, q, Q):
     J = list(range(1,n+1))
     routes = []
     costs = []
@@ -93,7 +95,7 @@ def initializePathsWithImpact(d, n, a, b):
                 for pos in range(1, len(route)):
                     newRoute, newS, newArr = insertNode(route, u, pos, s, \
                                                         arr, d, a)
-                    if routeIsFeasible(newRoute, a, b, newS, d):
+                    if routeIsFeasible(newRoute, a, b, newS, d, q, Q):
                         feasiblePositions.append(pos)
                         Is, Iu, Ld = computeISIULD(pos, newRoute, newArr, \
                                                     newS, a, b, d, Jminu)
@@ -105,7 +107,7 @@ def initializePathsWithImpact(d, n, a, b):
                     bestPosition, bestImpact = computeImpact(IS, IU, LD, \
                                                              feasiblePositions)
                     proposals[bestImpact] = (u, bestPosition)
-                    # END FOR
+                # END FOR
             # prendo miglior impact
             if proposals:
                 nodeToInsert, insertPos = proposals[min(list(proposals.keys()))]

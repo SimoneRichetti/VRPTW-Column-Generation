@@ -1,42 +1,50 @@
 from utilities import *
 from optimization import *
-from impact import initializePathsWithImpact
-from timeit import default_timer as timer
+from impact import initializePathsWithImpact, computeRouteCost
+from time import process_time
+import os
 
-INSTANCE_FILENAME = "r203.txt"
-PATH_FILENAME = "paths.txt"
 
-### THIS MORNING
-# Commit & push
-# Try with 25 customers
-# Study BB
+INSTANCE_NAME = "rc201"
+INSTANCE_FILENAME = os.path.join("solomon-instances", INSTANCE_NAME+".txt")
 
 
 ### TODOS ###
-# Count vehicle capacity in IMPACT path creation
-# Add branch and bound
-# Create timer and print partial times each iteration
+# Create Timer to clean the code
+# Movefile writes of results in a dedicated function
+# Take instance and customer number from CLI
 # See if it is possible to extend master model each iteration instead of
 #   recreate it each time (model.addVar(..., *column = ...*))
 # Use numpy where possible (use np array for x, y, a, b, ... if possible)
 #   -> fun. readData
-# (Optional) Plot routes
+# Plot routes
 ######
 
 
 if __name__ == '__main__':
+    # Take in input customers number
+    print("Select number of costumers (1-100):")
+    n = None
+    try:
+        n = int(input())
+    except Exception as e:
+        print("Invalid number of costumers. Exit."); exit()
+    if not n or n < 1 or n > 100:
+        print("Invalid number of costumers. Exit."); exit()
+
     # Read data from file and create distance matrix
-    n = 5     # number of customers
     Kdim, Q, x, y, q, a, b = readData(INSTANCE_FILENAME, n)
     d = createDistanceMatrix(x, y)
     print("Number of customers:", n, "\n")
     print("Start")
-    start = timer()
+    start = process_time()
 
-    # Initialize routes with IMPACT heuristic
-    routes = initializePathsWithImpact(d, n, a, b)
-    for i in range(1,n+1):
-         routes.append([0,i,n+1])
+    # Initialize routes with IMPACT heuristic and dummy paths
+    impactSol = initializePathsWithImpact(d, n, a, b, q, Q)
+    routes = impactSol[:]
+    #print("Impact solution:", routes)
+    impactCost = sum([computeRouteCost(route, d) for route in routes])
+    print("Impact cost:", impactCost)
     # A[i,p] = times that path p visits customer i
     A = np.zeros((n, len(routes)))
     c = np.zeros(len(routes))   # routes costs
@@ -50,23 +58,25 @@ if __name__ == '__main__':
         # Create master problem model
         masterModel = createMasterProblem(A, c, n, Kdim)
         masterModel.optimize()
-
-        constr = masterModel.getConstrs()[:-1]
-
-        pi_i = [0] + [const.pi for const in constr] + [0]
-
+        # Compute reduced costs
+        constr = masterModel.getConstrs()
+        pi_i = [0.] + [const.pi for const in constr] + [0.]
         for i in range(n+2):
             for j in range(n+2):
                 rc[i,j] = d[i,j] - pi_i[i]
 
+        if not np.where(rc < -1e-9):
+            break
+
         newRoutes = subProblem(n, q, d, a, b, rc, Q)
+        # Exit condition
         if not newRoutes:
             break
         for route in newRoutes:
             if route in routes:
-                print("\nERROR: DUPLICATE PATH\n", flush=True)
+                print("\nDUPLICATE PATH\n", flush=True)
                 break
-
+        # Add new routes to master problem
         newMat = np.zeros((n, len(newRoutes)))
         newCosts = np.zeros(len(newRoutes))
         addRoutesToMaster(newRoutes, newMat, newCosts, d)
@@ -74,19 +84,43 @@ if __name__ == '__main__':
         c = np.append(c, newCosts)
         A = np.c_[A, newMat]
         iter += 1
-        sc = int(timer()-start)
+        # Print partial time
+        sc = int(process_time()-start)
         mn = int(sc / 60)
         sc %=  60
         print("Partial time:", mn, "min", sc, "s")
 
-    end = timer()
+    end = process_time()
     print("+++RESULTS+++")
     sec = int(end-start)
     min = int(sec / 60)
     sec %=  60
     print("Time Elapsed:", min, "min", sec, "s")
-    print("Solution cost:", masterModel.getAttr("ObjVal"))
+    print("Impact solution cost:", impactCost)
+    print("Exact solution cost:", masterModel.getAttr("ObjVal"))
+
+    # Write results on file in directory "results"
+    if not os.path.exists(os.path.join(os.getcwd(), "results")):
+        os.mkdir(os.path.join(os.getcwd(), "results"))
+    filenameOut = os.path.join("results", \
+                               "results-"+INSTANCE_NAME+"-"+str(n)+".txt")
+    fout = open(filenameOut, "w")
+    fout.write("Impact solution cost: " + str(impactCost) + "\n")
+    fout.write("Impact solution: " + str(impactSol) + "\n")
+    fout.write("Exact solution cost: "+str(masterModel.getAttr("ObjVal"))+"\n")
     for i in range(len(routes)):
         var = masterModel.getVarByName("y["+str(i)+"]")
         if var.x > 0.:
             print(round(var.x, 3), "   ", routes[i])
+            fout.write(str(round(var.x, 3)) + "   " + str(routes[i]) + "\n")
+    fout.close()
+
+    # Write generated routes on file for CoverCost heuristic
+    if not os.path.exists(os.path.join(os.getcwd(), "routes")):
+        os.mkdir(os.path.join(os.getcwd(), "routes"))
+    outfile = os.path.join("routes", \
+                            INSTANCE_NAME+"-"+str(n)+"-customers-routes.txt")
+    with open(outfile, "w") as fout:
+        fout.write(INSTANCE_NAME + "\n")
+        for route in routes:
+            fout.write(str(route) + "\n")
