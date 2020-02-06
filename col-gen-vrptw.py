@@ -5,13 +5,9 @@ from time import process_time
 import os
 
 
-INSTANCE_NAME = "rc201"
-INSTANCE_FILENAME = os.path.join("solomon-instances", INSTANCE_NAME+".txt")
-
-
 ### TODOS ###
 # Create Timer to clean the code
-# Movefile writes of results in a dedicated function
+# Move file writes of results in a dedicated function
 # Take instance and customer number from CLI
 # See if it is possible to extend master model each iteration instead of
 #   recreate it each time (model.addVar(..., *column = ...*))
@@ -22,15 +18,7 @@ INSTANCE_FILENAME = os.path.join("solomon-instances", INSTANCE_NAME+".txt")
 
 
 if __name__ == '__main__':
-    # Take in input customers number
-    print("Select number of costumers (1-100):")
-    n = None
-    try:
-        n = int(input())
-    except Exception as e:
-        print("Invalid number of costumers. Exit."); exit()
-    if not n or n < 1 or n > 100:
-        print("Invalid number of costumers. Exit."); exit()
+    INSTANCE_NAME, INSTANCE_FILENAME, n = readInstanceN()
 
     # Read data from file and create distance matrix
     Kdim, Q, x, y, q, a, b = readData(INSTANCE_FILENAME, n)

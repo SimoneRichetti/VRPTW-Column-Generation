@@ -80,6 +80,7 @@ def subProblem(n, q, d, readyt, duedate, rc, Q):
 
     # Algorithm
     while L:
+        i = L.pop()
         if i == n+1:
             continue
 

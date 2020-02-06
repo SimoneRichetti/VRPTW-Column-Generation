@@ -1,4 +1,32 @@
 import numpy as np
+from sys import exit
+import os
+
+
+def readInstanceN():
+    # Take in input instance name
+    print("Instance name: [r|c|rc][NNN]")
+    INSTANCE_NAME = None
+    try:
+        INSTANCE_NAME = input()
+    except Exception as e:
+        print("Invalid instance. Exit."); exit(1)
+    if INSTANCE_NAME.endswith(".txt"):
+        INSTANCE_NAME = INSTANCE_NAME[:-4]
+    INSTANCE_FILENAME = os.path.join("solomon-instances", INSTANCE_NAME+".txt")
+    if not INSTANCE_NAME or not os.path.exists(INSTANCE_FILENAME):
+        print("Instance does not exists. Exit."); exit(1)
+
+    # Take in input customers number
+    print("Select number of costumers (1-100):")
+    n = None
+    try:
+        n = int(input())
+    except Exception as e:
+        print("Invalid number of costumers. Exit."); exit(1)
+    if not n or n < 1 or n > 100:
+        print("Invalid number of costumers. Exit."); exit(1)
+    return INSTANCE_NAME, INSTANCE_FILENAME, n
 
 
 def readData(filename, n):

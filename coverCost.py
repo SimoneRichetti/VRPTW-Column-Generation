@@ -1,9 +1,7 @@
 from utilities import *
 from collections import Counter
 import os
-
-
-ROUTES_FILENAME = "c101-25-customers-routes.txt"
+from sys import exit
 
 
 def coverCostHeuristic(bestIndex, allRoutes, allCosts, allCoverCost):
@@ -47,13 +45,23 @@ def coverCostHeuristic(bestIndex, allRoutes, allCosts, allCoverCost):
 
 
 if __name__ == "__main__":
+    # Take in input instance and number of costumers
+    INSTANCE_NAME, INSTANCE_FILENAME, n = readInstanceN()
+    ROUTES_FILENAME = os.path.join("routes", \
+                            INSTANCE_NAME+"-"+str(n)+"-customers-routes.txt")
+    if not os.path.exists(ROUTES_FILENAME):
+        print("No routes generated for this instance and number of customers.")
+        print("Run: 'python col-gen-vrptw.py' and input desired instance and" +\
+                "number of customers.")
+        print("Exit")
+        exit(1)
+
+
     # Read CG generated routes
     lines = []
-    with open(os.path.join("routes", ROUTES_FILENAME), "r") as fin:
+    with open(ROUTES_FILENAME, "r") as fin:
         lines = fin.readlines()
-    INSTANCE_FILENAME = lines.pop(0).rstrip() + ".txt"
-    allRoutes = [list(map(int, line[1:-2].split(", "))) for line in lines]
-    n = int(ROUTES_FILENAME.split("-")[1])
+    allRoutes = [list(map(int, line[1:-2].split(", "))) for line in lines[1:]]
 
     # Discard all routes that visit a node more than one time
     nodes = set(range(1,n+1))
@@ -64,7 +72,7 @@ if __name__ == "__main__":
             routes.append(route)
 
     # Create distance matrix and routes costs
-    Kdim, Q, x, y, q, a, b = readData(os.path.join("solomon-instances", INSTANCE_FILENAME), n)
+    Kdim, Q, x, y, q, a, b = readData(INSTANCE_FILENAME, n)
     d = createDistanceMatrix(x, y)
     costs = []
     for route in routes:
@@ -76,8 +84,8 @@ if __name__ == "__main__":
     # Find coverage/cost ratio off the routes
     coverCost = [(len(routes[i])-2)/costs[i] for i in range(len(routes))]
     idxBestCoverCost = sorted(coverCost, reverse = True)
-    if len(idxBestCoverCost) > 100:
-       idxBestCoverCost =idxBestCoverCost[:100]
+    # if len(idxBestCoverCost) > 300:
+    #    idxBestCoverCost =idxBestCoverCost[:300]
     # Find indexes of the 10 paths with the best cover cost
     idxBestCoverCost = set([coverCost.index(idxBestCoverCost[i]) \
                             for i in range(len(idxBestCoverCost))])
